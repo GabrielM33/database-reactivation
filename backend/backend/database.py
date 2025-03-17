@@ -1,4 +1,6 @@
 import os
+import re
+from urllib.parse import urlparse
 
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
@@ -6,6 +8,11 @@ from sqlalchemy.orm import sessionmaker
 
 # Get database URL from environment variable or use SQLite default
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./database.db")
+
+# Handle special case for Neon PostgreSQL URLs
+if DATABASE_URL.startswith("postgres://"):
+    # Convert postgres:// to postgresql:// for SQLAlchemy
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 # Create SQLAlchemy engine
 engine = create_engine(
