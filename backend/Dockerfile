@@ -3,16 +3,18 @@ FROM python:3.11-slim
 WORKDIR /app
 
 # Install system dependencies including PostgreSQL client
-RUN apt-get update && apt-get install -y \
+# Use --no-install-recommends to reduce image size and memory usage
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     gcc \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Poetry
-RUN pip install poetry==1.5.1
+RUN pip install --no-cache-dir poetry==1.5.1
 
 # Copy poetry configuration files
-COPY pyproject.toml poetry.lock* ./
+COPY backend/pyproject.toml backend/poetry.lock* ./
 
 # Configure poetry to not use a virtual environment
 RUN poetry config virtualenvs.create false
@@ -21,7 +23,7 @@ RUN poetry config virtualenvs.create false
 RUN poetry install --no-interaction --no-ansi --no-dev
 
 # Copy application code
-COPY . .
+COPY backend/ .
 
 # Expose the port the app will run on
 EXPOSE 8000

@@ -1,0 +1,12 @@
+fastapi>=0.115.0
+uvicorn>=0.30.0
+sqlalchemy>=2.0.30
+pandas>=2.2.1
+phonenumbers>=8.13.32
+python-dotenv>=1.0.1
+twilio>=9.0.0
+python-multipart>=0.0.9
+pydantic>=2.6.4
+asyncio>=3.4.3
+psycopg2-binary>=2.9.9
+openai>=1.66.3 

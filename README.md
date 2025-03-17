@@ -100,6 +100,23 @@ You can also deploy both the backend and the PostgreSQL database on Railway.
    - Frontend: http://localhost:3000
    - Backend API: http://localhost:8000
 
+## Troubleshooting
+
+### Docker Deployment Issues
+
+If you encounter memory errors (e.g., exit code 137) or file not found errors when deploying to Railway:
+
+1. The root `Dockerfile` uses pip instead of Poetry, which requires less memory during build.
+2. Make sure your `railway.json` is pointing to the correct Dockerfile path.
+3. If you get "file not found" errors, check that the paths in your Dockerfile match your repository structure.
+
+```bash
+# If deploying via CLI, you can specify a lower memory container
+railway up --service-memory 512MB
+```
+
+For more Railway deployment information, visit their [documentation](https://docs.railway.app/).
+
 ## Project Structure
 
 - `/backend`: FastAPI backend application
