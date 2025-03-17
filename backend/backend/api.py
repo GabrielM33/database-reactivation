@@ -402,6 +402,38 @@ async def export_leads(
         raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
 
 
+@app.get("/health")
+async def health_check(db: Session = Depends(get_db)):
+    """Check system health and verify database connection."""
+    try:
+        # Make a simple database query to verify connection
+        version_query = (
+            "SELECT version();"
+            if "postgresql" in os.getenv("DATABASE_URL", "")
+            else "SELECT sqlite_version();"
+        )
+        result = db.execute(version_query).scalar()
+
+        db_type = (
+            "PostgreSQL" if "postgresql" in os.getenv("DATABASE_URL", "") else "SQLite"
+        )
+
+        return {
+            "status": "healthy",
+            "database": {
+                "type": db_type,
+                "version": result,
+                "connection": "successful",
+            },
+        }
+    except Exception as e:
+        logger.error(f"Health check failed: {str(e)}")
+        return {
+            "status": "unhealthy",
+            "database": {"connection": "failed", "error": str(e)},
+        }
+
+
 # Background task functions
 async def process_import_file(file_path: str, db: Session):
     """Process the imported CSV file in the background."""
