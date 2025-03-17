@@ -53,7 +53,7 @@ def main():
 
         # Run the server
         uvicorn.run(
-            app,
+            "backend.api:app",
             host=os.getenv("HOST", "0.0.0.0"),
             port=int(os.getenv("PORT", "8000")),
             reload=os.getenv("ENV", "development") == "development",
