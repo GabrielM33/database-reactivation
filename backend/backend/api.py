@@ -94,15 +94,20 @@ def get_leads(
     skip: int = 0,
     limit: int = 100,
     state: Optional[str] = None,
+    lead_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
-    """Get a list of leads, optionally filtered by conversation state."""
+    """Get a list of leads, optionally filtered by conversation state or lead ID."""
     try:
         query = db.query(Lead)
 
         if state:
             # Filter by conversation state
             query = query.join(Lead.conversations).filter(Conversation.state == state)
+
+        if lead_id:
+            # Filter by lead ID
+            query = query.filter(Lead.id == lead_id)
 
         total = query.count()
         leads = query.offset(skip).limit(limit).all()
@@ -117,9 +122,11 @@ def get_leads(
                 "email": lead.email,
                 "created_at": lead.created_at.isoformat(),
                 "updated_at": lead.updated_at.isoformat(),
+                "conversation_state": "new",  # Default state
+                "last_contact": None,
             }
 
-            # Get the latest conversation state
+            # Get the latest conversation state if available
             if lead.conversations:
                 latest_conversation = max(
                     lead.conversations, key=lambda c: c.updated_at

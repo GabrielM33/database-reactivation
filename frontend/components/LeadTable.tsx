@@ -1,5 +1,5 @@
 import React from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Lead {
   id: number;
@@ -15,6 +15,8 @@ interface LeadTableProps {
 }
 
 const LeadTable: React.FC<LeadTableProps> = ({ leads }) => {
+  const router = useRouter();
+
   if (leads.length === 0) {
     return (
       <div className="bg-gray-50 p-6 rounded text-center">
@@ -45,6 +47,18 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads }) => {
 
     const date = new Date(dateString);
     return date.toLocaleDateString() + " " + date.toLocaleTimeString();
+  };
+
+  const handleViewDetails = (leadId: number) => {
+    // Check if the lead exists in our current list
+    const leadExists = leads.some((lead) => lead.id === leadId);
+    if (leadExists) {
+      router.push(`/leads/${leadId}`);
+    } else {
+      alert(
+        `Lead with ID ${leadId} not found. Please refresh the page to see the latest leads.`
+      );
+    }
   };
 
   return (
@@ -83,12 +97,12 @@ const LeadTable: React.FC<LeadTableProps> = ({ leads }) => {
                 {formatDate(lead.last_contact)}
               </td>
               <td className="py-2 px-4 border-b">
-                <Link
-                  href={`/leads/${lead.id}`}
+                <button
+                  onClick={() => handleViewDetails(lead.id)}
                   className="text-blue-600 hover:underline"
                 >
                   View Details
-                </Link>
+                </button>
               </td>
             </tr>
           ))}

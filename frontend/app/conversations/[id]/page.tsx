@@ -46,7 +46,13 @@ export default function ConversationDetailPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error("Failed to fetch conversation");
+        throw new Error(`Failed to fetch conversation: ${response.status}`);
+      }
+
+      if (!data || !data.conversation_id) {
+        throw new Error(
+          `Conversation with ID ${conversationId} not found. Please check the conversations list.`
+        );
       }
 
       setConversation(data);
@@ -76,11 +82,17 @@ export default function ConversationDetailPage() {
       );
       const conversationsData = await conversationsResponse.json();
 
+      if (!conversationsResponse.ok) {
+        throw new Error(`API error: ${conversationsResponse.status}`);
+      }
+
       if (
-        !conversationsResponse.ok ||
-        !conversationsData.conversations?.length
+        !conversationsData.conversations ||
+        conversationsData.conversations.length === 0
       ) {
-        throw new Error("Failed to get lead information");
+        throw new Error(
+          `Conversation with ID ${conversationId} not found. Please check the conversations list for available conversations.`
+        );
       }
 
       const leadId = conversationsData.conversations[0].lead_id;
@@ -149,8 +161,17 @@ export default function ConversationDetailPage() {
       {loading ? (
         <div className="text-center py-8">Loading conversation...</div>
       ) : error ? (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          {error}
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{error}</span>
+          <div className="mt-4">
+            <Link
+              href="/conversations"
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            >
+              Back to Conversations List
+            </Link>
+          </div>
         </div>
       ) : conversation ? (
         <div>

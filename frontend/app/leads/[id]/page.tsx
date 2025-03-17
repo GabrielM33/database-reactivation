@@ -48,12 +48,18 @@ export default function LeadDetailPage() {
     try {
       // Fetch lead details
       const leadResponse = await fetch(
-        `http://localhost:8000/leads?limit=1&lead_id=${leadId}`
+        `http://localhost:8000/leads?lead_id=${leadId}`
       );
       const leadData = await leadResponse.json();
 
-      if (!leadResponse.ok || !leadData.leads?.length) {
-        throw new Error("Failed to fetch lead details");
+      if (!leadResponse.ok) {
+        throw new Error(`API error: ${leadResponse.status}`);
+      }
+
+      if (!leadData.leads || leadData.leads.length === 0) {
+        throw new Error(
+          `Lead with ID ${leadId} not found. Please check the leads list for available leads.`
+        );
       }
 
       setLead(leadData.leads[0]);
@@ -115,8 +121,17 @@ export default function LeadDetailPage() {
       {loading ? (
         <div className="text-center py-8">Loading lead details...</div>
       ) : error ? (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
-          {error}
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative">
+          <strong className="font-bold">Error: </strong>
+          <span className="block sm:inline">{error}</span>
+          <div className="mt-4">
+            <Link
+              href="/leads"
+              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+            >
+              Back to Leads List
+            </Link>
+          </div>
         </div>
       ) : lead ? (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
