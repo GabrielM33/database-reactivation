@@ -153,6 +153,7 @@ def get_conversations(
     limit: int = 100,
     state: Optional[str] = None,
     lead_id: Optional[int] = None,
+    conversation_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
     """Get a list of conversations, optionally filtered by state or lead ID."""
@@ -164,6 +165,9 @@ def get_conversations(
 
         if lead_id:
             query = query.filter(Conversation.lead_id == lead_id)
+
+        if conversation_id:
+            query = query.filter(Conversation.id == conversation_id)
 
         total = query.count()
         conversations = query.offset(skip).limit(limit).all()
