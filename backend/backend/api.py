@@ -434,6 +434,42 @@ async def health_check(db: Session = Depends(get_db)):
         }
 
 
+@app.post("/admin/init-db")
+async def admin_init_db(force: bool = False, db: Session = Depends(get_db)):
+    """Admin endpoint to initialize database tables.
+
+    WARNING: Setting force=true will drop all existing tables and data!
+    Only use in development or when migrating to a new database.
+    """
+    try:
+        from backend.database import init_db
+
+        # Initialize the database with the force parameter
+        init_db(force_create_tables=force)
+
+        # Test the connection
+        if "postgresql" in os.getenv("DATABASE_URL", ""):
+            version = db.execute("SELECT version();").scalar()
+            table_query = "SELECT table_name FROM information_schema.tables WHERE table_schema='public';"
+            tables = [row[0] for row in db.execute(table_query).fetchall()]
+        else:
+            version = db.execute("SELECT sqlite_version();").scalar()
+            table_query = "SELECT name FROM sqlite_master WHERE type='table';"
+            tables = [row[0] for row in db.execute(table_query).fetchall()]
+
+        return {
+            "status": "success",
+            "message": f"Database tables {'recreated' if force else 'initialized'}",
+            "database_version": version,
+            "tables_created": tables,
+        }
+    except Exception as e:
+        logger.error(f"Error initializing database: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to initialize database: {str(e)}"
+        )
+
+
 # Background task functions
 async def process_import_file(file_path: str, db: Session):
     """Process the imported CSV file in the background."""

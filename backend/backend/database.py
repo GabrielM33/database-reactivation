@@ -54,5 +54,16 @@ def get_db():
 
 
 # Function to initialize the database
-def init_db():
+def init_db(force_create_tables=False):
+    """Initialize the database and create tables if they don't exist.
+
+    Args:
+        force_create_tables: If True, will drop all tables before creating them.
+    """
+    if force_create_tables and not DATABASE_URL.startswith("sqlite"):
+        # This will drop all tables - be careful!
+        logger.warning("Dropping all tables due to force_create_tables=True")
+        Base.metadata.drop_all(bind=engine)
+
     Base.metadata.create_all(bind=engine)
+    logger.info("Database tables initialized")
