@@ -19,15 +19,44 @@ class CSVProcessor:
     def validate_phone_number(phone: str) -> Tuple[bool, Optional[str]]:
         """Validate phone number and return a formatted version if valid."""
         try:
-            parsed_number = phonenumbers.parse(
-                phone, "US"
-            )  # Assuming US numbers for now
-            if phonenumbers.is_valid_number(parsed_number):
-                formatted = phonenumbers.format_number(
-                    parsed_number, phonenumbers.PhoneNumberFormat.E164
-                )
-                return True, formatted
+            # Ensure phone is a string
+            phone_str = str(phone).strip()
+
+            # Add + if it's missing and the number starts with a country code
+            if not phone_str.startswith("+") and phone_str.isdigit():
+                if phone_str.startswith("1"):  # US number
+                    phone_str = "+" + phone_str
+                else:
+                    phone_str = "+1" + phone_str  # Assume US if no country code
+
+            logger.info(f"Processing phone number: {phone_str}")
+
+            # Simple validation for E.164 format
+            if (
+                phone_str.startswith("+")
+                and phone_str[1:].isdigit()
+                and len(phone_str) >= 11
+            ):
+                logger.info(f"Valid E.164 phone number: {phone_str}")
+                return True, phone_str
+
+            # Try using the phonenumbers library as a fallback
+            try:
+                parsed_number = phonenumbers.parse(phone_str, "US")
+                if phonenumbers.is_valid_number(parsed_number):
+                    formatted = phonenumbers.format_number(
+                        parsed_number, phonenumbers.PhoneNumberFormat.E164
+                    )
+                    logger.info(f"Successfully validated phone number: {formatted}")
+                    return True, formatted
+                else:
+                    logger.warning(f"Phone number parsed but invalid: {phone_str}")
+            except Exception as e:
+                logger.warning(f"Error parsing with phonenumbers: {str(e)}")
+
+            # If we got here, the number is invalid
             return False, None
+
         except Exception as e:
             logger.error(f"Error validating phone number {phone}: {str(e)}")
             return False, None
@@ -41,8 +70,8 @@ class CSVProcessor:
         results = {"total": 0, "added": 0, "updated": 0, "failed": 0}
 
         try:
-            # Read CSV file
-            df = pd.read_csv(csv_path)
+            # Read CSV file with phone_number as string
+            df = pd.read_csv(csv_path, dtype={"phone_number": str})
             results["total"] = len(df)
 
             required_columns = ["name", "phone_number"]
@@ -130,6 +159,7 @@ class CSVProcessor:
 
             # Commit changes
             db.commit()
+            logger.info(f"Import completed successfully: {results}")
 
         except Exception as e:
             db.rollback()
