@@ -1,0 +1,265 @@
+import asyncio
+import logging
+import time
+from datetime import datetime, timedelta
+from typing import Any, Dict, List
+
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
+
+from backend.llm_engine import LLMConversationEngine
+from backend.models import Conversation, ConversationState, Lead, Message
+from backend.sms_gateway import SMSGateway
+
+logger = logging.getLogger(__name__)
+
+
+class StateManager:
+    """
+    Manages conversation states and schedules message sending.
+    """
+
+    def __init__(
+        self,
+        db_session: Session,
+        llm_engine: LLMConversationEngine,
+        sms_gateway: SMSGateway,
+        max_concurrent_conversations: int = 50,
+        messages_per_minute: int = 10,
+    ):
+        """Initialize the state manager."""
+        self.db = db_session
+        self.llm_engine = llm_engine
+        self.sms_gateway = sms_gateway
+        self.max_concurrent_conversations = max_concurrent_conversations
+        self.messages_per_minute = messages_per_minute
+        self.message_interval = 60 / messages_per_minute  # seconds between messages
+        self.running = False
+
+    def get_active_conversation_count(self) -> int:
+        """
+        Get the count of currently active conversations.
+        """
+        return (
+            self.db.query(Conversation)
+            .filter(
+                Conversation.state.in_(
+                    [ConversationState.NEW.value, ConversationState.ENGAGED.value]
+                )
+            )
+            .count()
+        )
+
+    def get_pending_conversations(self, limit: int) -> List[Conversation]:
+        """
+        Get conversations that need follow-up messages.
+        """
+        # Get new conversations that haven't been contacted yet
+        new_conversations = (
+            self.db.query(Conversation)
+            .filter(
+                Conversation.state == ConversationState.NEW.value,
+                ~Conversation.messages.any(),  # No messages yet
+            )
+            .limit(limit)
+            .all()
+        )
+
+        # If we have capacity for more, get engaged conversations that need follow-up
+        remaining_slots = limit - len(new_conversations)
+
+        engaged_conversations = []
+        if remaining_slots > 0:
+            # Get engaged conversations with lead's last message unanswered
+            # This is a bit complex since we need to find conversations where:
+            # 1. The last message is from the lead
+            # 2. The conversation is in engaged state
+            # 3. The last message was sent more than 5 minutes ago (to avoid immediate responses)
+            five_min_ago = datetime.utcnow() - timedelta(minutes=5)
+
+            engaged_conversations = (
+                self.db.query(Conversation)
+                .filter(
+                    Conversation.state == ConversationState.ENGAGED.value,
+                    Conversation.last_contact < five_min_ago,
+                )
+                .join(Message, Conversation.messages)
+                .filter(Message.is_from_lead == True)
+                .order_by(Message.sent_at.desc())
+                .limit(remaining_slots)
+                .all()
+            )
+
+        return new_conversations + engaged_conversations
+
+    def get_unresponsive_conversations(
+        self, days_threshold: int = 3
+    ) -> List[Conversation]:
+        """
+        Get conversations where there's been no response from the lead for several days.
+        """
+        threshold_date = datetime.utcnow() - timedelta(days=days_threshold)
+
+        return (
+            self.db.query(Conversation)
+            .filter(
+                Conversation.state == ConversationState.ENGAGED.value,
+                Conversation.last_contact < threshold_date,
+            )
+            .all()
+        )
+
+    def update_unresponsive_conversations(self) -> int:
+        """
+        Mark unresponsive conversations as such.
+        Returns the number of conversations updated.
+        """
+        unresponsive_conversations = self.get_unresponsive_conversations()
+
+        for conversation in unresponsive_conversations:
+            conversation.state = ConversationState.UNRESPONSIVE.value
+
+        self.db.commit()
+        return len(unresponsive_conversations)
+
+    async def process_conversation(self, conversation: Conversation) -> Dict[str, Any]:
+        """
+        Process a single conversation - generate and send a message if appropriate.
+        """
+        result = {
+            "conversation_id": conversation.id,
+            "lead_name": conversation.lead.name,
+            "success": False,
+            "message_sent": False,
+            "error": None,
+        }
+
+        try:
+            # Generate a message using the LLM
+            message_content = self.llm_engine.generate_message(conversation.id, self.db)
+
+            if not message_content:
+                result["error"] = "No message generated by LLM"
+                return result
+
+            # Send the message via SMS
+            sms_result = self.sms_gateway.send_message(
+                to_number=conversation.lead.phone_number,
+                content=message_content,
+                conversation_id=conversation.id,
+                db=self.db,
+            )
+
+            if not sms_result["success"]:
+                result["error"] = f"SMS sending failed: {sms_result['error']}"
+                return result
+
+            # Update conversation state
+            if conversation.state == ConversationState.NEW.value:
+                conversation.state = ConversationState.ENGAGED.value
+                self.db.commit()
+
+            result["success"] = True
+            result["message_sent"] = True
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Error processing conversation {conversation.id}: {str(e)}")
+            result["error"] = str(e)
+            return result
+
+    async def run_conversation_cycle(self) -> Dict[str, Any]:
+        """
+        Run a single cycle of conversation processing.
+        """
+        results = {
+            "active_conversations": 0,
+            "processed": 0,
+            "successful": 0,
+            "failed": 0,
+            "errors": [],
+        }
+
+        # Update unresponsive conversations
+        updated_unresponsive = self.update_unresponsive_conversations()
+        logger.info(
+            f"Updated {updated_unresponsive} conversations to unresponsive state"
+        )
+
+        # Get current active conversation count
+        active_count = self.get_active_conversation_count()
+        results["active_conversations"] = active_count
+
+        # Determine how many new conversations we can handle
+        available_slots = min(
+            self.max_concurrent_conversations - active_count,
+            self.messages_per_minute,  # Don't process more than we can send in a minute
+        )
+
+        if available_slots <= 0:
+            return results
+
+        # Get pending conversations
+        pending_conversations = self.get_pending_conversations(available_slots)
+        results["processed"] = len(pending_conversations)
+
+        # Process each conversation with throttling
+        for conversation in pending_conversations:
+            start_time = time.time()
+
+            # Process the conversation
+            process_result = await self.process_conversation(conversation)
+
+            # Update results
+            if process_result["success"]:
+                results["successful"] += 1
+            else:
+                results["failed"] += 1
+                results["errors"].append(
+                    {
+                        "conversation_id": process_result["conversation_id"],
+                        "lead_name": process_result["lead_name"],
+                        "error": process_result["error"],
+                    }
+                )
+
+            # Throttle to respect rate limits
+            elapsed = time.time() - start_time
+            if elapsed < self.message_interval:
+                await asyncio.sleep(self.message_interval - elapsed)
+
+        return results
+
+    async def start_scheduler(self, interval_seconds: int = 60):
+        """
+        Start the conversation scheduler loop.
+        """
+        self.running = True
+        logger.info(
+            f"Starting conversation scheduler with interval {interval_seconds} seconds"
+        )
+
+        while self.running:
+            try:
+                start_time = time.time()
+
+                # Run a cycle
+                cycle_results = await self.run_conversation_cycle()
+                logger.info(f"Cycle completed: {cycle_results}")
+
+                # Wait for the next interval
+                elapsed = time.time() - start_time
+                if elapsed < interval_seconds:
+                    await asyncio.sleep(interval_seconds - elapsed)
+
+            except Exception as e:
+                logger.error(f"Error in scheduler loop: {str(e)}")
+                await asyncio.sleep(interval_seconds)  # Wait before retrying
+
+    def stop_scheduler(self):
+        """
+        Stop the conversation scheduler loop.
+        """
+        self.running = False
+        logger.info("Stopping conversation scheduler")

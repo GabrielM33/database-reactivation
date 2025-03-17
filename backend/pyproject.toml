@@ -1,0 +1,36 @@
+[tool.poetry]
+name = "backend"
+version = "0.1.0"
+description = "Database Reactivation Project for re-engaging dormant leads"
+authors = ["Gabriel Moraes <gabrielmoraesweb@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.13"
+openai-agents = "^0.0.4"
+google-genai = "^1.5.0"
+openai = "^1.66.3"
+fastapi = "^0.115.0"
+uvicorn = "^0.30.0"
+sqlalchemy = "^2.0.30"
+pandas = "^2.2.1"
+phonenumbers = "^8.13.32"
+python-dotenv = "^1.0.1"
+twilio = "^9.0.0"
+python-multipart = "^0.0.9"
+pydantic = "^2.6.4"
+asyncio = "^3.4.3"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.1.1"
+pytest-asyncio = "^0.23.5"
+black = "^24.3.0"
+isort = "^5.13.2"
+mypy = "^1.8.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+start = "backend.main:main"
