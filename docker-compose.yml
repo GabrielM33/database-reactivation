@@ -1,0 +1,20 @@
+version: "3"
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_PHONE_NUMBER=${TWILIO_PHONE_NUMBER}
+      - BOOKING_LINK=${BOOKING_LINK}
+      - DATABASE_URL=sqlite:///./app.db
+      - HOST=0.0.0.0
+      - PORT=8000
+      - ENV=production
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-http://localhost:3000,https://database-reactivation.vercel.app}
+    volumes:
+      - ./backend:/app

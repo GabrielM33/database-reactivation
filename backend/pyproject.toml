@@ -20,6 +20,7 @@ twilio = "^9.0.0"
 python-multipart = "^0.0.9"
 pydantic = "^2.6.4"
 asyncio = "^3.4.3"
+psycopg2-binary = "^2.9.9"
 
 [tool.poetry.dev-dependencies]
 pytest = "^8.1.1"

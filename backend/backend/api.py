@@ -34,9 +34,13 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="Database Reactivation API")
 
 # Configure CORS
+allowed_origins = os.getenv(
+    "ALLOWED_ORIGINS", "http://localhost:3000,https://database-reactivation.vercel.app"
+).split(",")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins in development
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
