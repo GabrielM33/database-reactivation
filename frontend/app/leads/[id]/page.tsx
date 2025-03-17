@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { API_BASE_URL } from "@/utils/config";
 
 interface Lead {
   id: number;
@@ -48,7 +49,7 @@ export default function LeadDetailPage() {
     try {
       // Fetch lead details
       const leadResponse = await fetch(
-        `http://localhost:8000/leads?lead_id=${leadId}`
+        `${API_BASE_URL}/leads?lead_id=${leadId}`
       );
       const leadData = await leadResponse.json();
 
@@ -66,7 +67,7 @@ export default function LeadDetailPage() {
 
       // Fetch conversations for this lead
       const conversationsResponse = await fetch(
-        `http://localhost:8000/conversations?lead_id=${leadId}`
+        `${API_BASE_URL}/conversations?lead_id=${leadId}`
       );
       const conversationsData = await conversationsResponse.json();
 

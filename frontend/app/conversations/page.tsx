@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { API_BASE_URL } from "@/utils/config";
 
 interface Conversation {
   id: number;
@@ -17,24 +18,30 @@ interface Conversation {
 }
 
 export default function ConversationsPage() {
-  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<string>("all");
+  const [stateFilter, setStateFilter] = useState<string>("all");
+  const pageSize = 100; // Just use a fixed page size
 
   useEffect(() => {
     fetchConversations();
-  }, [filter]);
+  }, [stateFilter]);
 
   const fetchConversations = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      let url = "http://localhost:8000/conversations";
-      if (filter !== "all") {
-        url += `?state=${filter}`;
+      let url = `${API_BASE_URL}/conversations`;
+
+      // Add query parameters
+      const params = new URLSearchParams();
+      params.append("limit", pageSize.toString());
+      if (stateFilter && stateFilter !== "all") {
+        params.append("state", stateFilter);
       }
+      url += `?${params.toString()}`;
 
       const response = await fetch(url);
       const data = await response.json();
@@ -95,49 +102,55 @@ export default function ConversationsPage() {
       <div className="mb-6">
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => setFilter("all")}
+            onClick={() => setStateFilter("all")}
             className={`px-3 py-1 rounded-full ${
-              filter === "all" ? "bg-gray-800 text-white" : "bg-gray-200"
+              stateFilter === "all" ? "bg-gray-800 text-white" : "bg-gray-200"
             }`}
           >
             All
           </button>
           <button
-            onClick={() => setFilter("new")}
+            onClick={() => setStateFilter("new")}
             className={`px-3 py-1 rounded-full ${
-              filter === "new" ? "bg-blue-600 text-white" : "bg-blue-100"
+              stateFilter === "new" ? "bg-blue-600 text-white" : "bg-blue-100"
             }`}
           >
             New
           </button>
           <button
-            onClick={() => setFilter("engaged")}
+            onClick={() => setStateFilter("engaged")}
             className={`px-3 py-1 rounded-full ${
-              filter === "engaged" ? "bg-green-600 text-white" : "bg-green-100"
+              stateFilter === "engaged"
+                ? "bg-green-600 text-white"
+                : "bg-green-100"
             }`}
           >
             Engaged
           </button>
           <button
-            onClick={() => setFilter("booked")}
+            onClick={() => setStateFilter("booked")}
             className={`px-3 py-1 rounded-full ${
-              filter === "booked" ? "bg-purple-600 text-white" : "bg-purple-100"
+              stateFilter === "booked"
+                ? "bg-purple-600 text-white"
+                : "bg-purple-100"
             }`}
           >
             Booked
           </button>
           <button
-            onClick={() => setFilter("opted_out")}
+            onClick={() => setStateFilter("opted_out")}
             className={`px-3 py-1 rounded-full ${
-              filter === "opted_out" ? "bg-red-600 text-white" : "bg-red-100"
+              stateFilter === "opted_out"
+                ? "bg-red-600 text-white"
+                : "bg-red-100"
             }`}
           >
             Opted Out
           </button>
           <button
-            onClick={() => setFilter("unresponsive")}
+            onClick={() => setStateFilter("unresponsive")}
             className={`px-3 py-1 rounded-full ${
-              filter === "unresponsive"
+              stateFilter === "unresponsive"
                 ? "bg-yellow-600 text-white"
                 : "bg-yellow-100"
             }`}

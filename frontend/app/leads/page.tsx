@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import LeadTable from "../../components/LeadTable";
+import LeadTable from "@/components/LeadTable";
+import { API_BASE_URL } from "@/utils/config";
 
 interface Lead {
   id: number;
@@ -26,13 +27,13 @@ export default function LeadsPage() {
     fetchLeads();
   }, [filter, page]);
 
-  const fetchLeads = async () => {
+  const fetchLeads = async (pageNumber = 1) => {
     setLoading(true);
     setError(null);
 
     try {
-      let url = `http://localhost:8000/leads?skip=${
-        (page - 1) * leadsPerPage
+      let url = `${API_BASE_URL}/leads?skip=${
+        (pageNumber - 1) * leadsPerPage
       }&limit=${leadsPerPage}`;
       if (filter !== "all") {
         url += `&state=${filter}`;

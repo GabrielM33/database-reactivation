@@ -5,6 +5,7 @@ import Link from "next/link";
 import DashboardStats from "../components/DashboardStats";
 import LeadTable from "../components/LeadTable";
 import ImportLeadsModal from "../components/ImportLeadsModal";
+import { API_BASE_URL } from "@/utils/config";
 
 interface Lead {
   id: number;
@@ -46,7 +47,7 @@ export default function Home() {
 
     try {
       // Fetch leads
-      const leadsResponse = await fetch("http://localhost:8000/leads?limit=10");
+      const leadsResponse = await fetch(`${API_BASE_URL}/leads?limit=10`);
       const leadsData = await leadsResponse.json();
 
       if (!leadsResponse.ok) {
@@ -64,13 +65,13 @@ export default function Home() {
       };
 
       // Fetch conversation counts by state
-      const conversationResponse = await fetch(
-        "http://localhost:8000/conversations"
+      const conversationsResponse = await fetch(
+        `${API_BASE_URL}/conversations`
       );
-      const conversationData = await conversationResponse.json();
+      const conversationsData = await conversationsResponse.json();
 
-      if (conversationResponse.ok) {
-        const conversations = conversationData.conversations || [];
+      if (conversationsResponse.ok) {
+        const conversations = conversationsData.conversations || [];
         statsData.activeConversations = conversations.filter(
           (c: Conversation) => c.state === "engaged" || c.state === "new"
         ).length;

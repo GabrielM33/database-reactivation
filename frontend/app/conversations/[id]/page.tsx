@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, FormEvent, useRef } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
@@ -19,6 +19,9 @@ interface ConversationDetail {
   messages: Message[];
 }
 
+// API base URL that works in both development and production
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 export default function ConversationDetailPage() {
   const params = useParams();
   const conversationId = params.id;
@@ -30,18 +33,43 @@ export default function ConversationDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchConversation();
+
+    // Start polling for new messages every 5 seconds
+    pollingIntervalRef.current = setInterval(() => {
+      if (!sending) {
+        fetchConversation(false);
+      }
+    }, 5000);
+
+    // Cleanup interval on unmount
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
   }, [conversationId]);
 
-  const fetchConversation = async () => {
-    setLoading(true);
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [conversation?.messages]);
+
+  const fetchConversation = async (showLoading = true) => {
+    if (showLoading) {
+      setLoading(true);
+    }
     setError(null);
 
     try {
       const response = await fetch(
-        `http://localhost:8000/conversations/${conversationId}/messages`
+        `${API_BASE_URL}/conversations/${conversationId}/messages`
       );
       const data = await response.json();
 
@@ -62,7 +90,9 @@ export default function ConversationDetailPage() {
         err instanceof Error ? err.message : "An unknown error occurred"
       );
     } finally {
-      setLoading(false);
+      if (showLoading) {
+        setLoading(false);
+      }
     }
   };
 
@@ -78,7 +108,7 @@ export default function ConversationDetailPage() {
     try {
       // Get lead ID from the API
       const conversationsResponse = await fetch(
-        `http://localhost:8000/conversations?conversation_id=${conversationId}`
+        `${API_BASE_URL}/conversations?conversation_id=${conversationId}`
       );
       const conversationsData = await conversationsResponse.json();
 
@@ -102,7 +132,7 @@ export default function ConversationDetailPage() {
       formData.append("lead_id", leadId.toString());
       formData.append("message", newMessage);
 
-      const response = await fetch("http://localhost:8000/send-message", {
+      const response = await fetch(`${API_BASE_URL}/send-message`, {
         method: "POST",
         body: formData,
       });
@@ -241,6 +271,7 @@ export default function ConversationDetailPage() {
                   </div>
                 ))
               )}
+              <div ref={messagesEndRef} />
             </div>
 
             {conversation.state !== "opted_out" &&

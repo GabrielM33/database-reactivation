@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { API_BASE_URL } from "@/utils/config";
 
 export default function ExportLeadsPage() {
   const [loading, setLoading] = useState(false);
@@ -14,7 +15,7 @@ export default function ExportLeadsPage() {
     setExportUrl(null);
 
     try {
-      const response = await fetch("http://localhost:8000/export-leads", {
+      const response = await fetch(`${API_BASE_URL}/export-leads`, {
         method: "POST",
       });
 
